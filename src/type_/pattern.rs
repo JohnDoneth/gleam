@@ -275,6 +275,7 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                 location,
                 elements,
                 tail,
+                multi_line,
             } => match type_.get_app_args(true, &[], "List", 1, self.environment) {
                 Some(args) => {
                     let typ = args
@@ -295,6 +296,7 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                         location,
                         elements,
                         tail,
+                        multi_line,
                     })
                 }
 
@@ -306,7 +308,11 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                 }),
             },
 
-            Pattern::Tuple { elems, location } => match collapse_links(type_.clone()).deref() {
+            Pattern::Tuple {
+                elems,
+                location,
+                multi_line,
+            } => match collapse_links(type_.clone()).deref() {
                 Type::Tuple { elems: type_elems } => {
                     if elems.len() != type_elems.len() {
                         return Err(Error::IncorrectArity {
@@ -322,7 +328,11 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                         .zip(type_elems)
                         .map(|(pattern, typ)| self.unify(pattern, typ.clone()))
                         .try_collect()?;
-                    Ok(Pattern::Tuple { elems, location })
+                    Ok(Pattern::Tuple {
+                        elems,
+                        location,
+                        multi_line,
+                    })
                 }
 
                 Type::Var { .. } => {
@@ -332,7 +342,14 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                     self.environment
                         .unify(tuple(elems_types), type_.clone())
                         .map_err(|e| convert_unify_error(e, location))?;
-                    self.unify(Pattern::Tuple { elems, location }, type_)
+                    self.unify(
+                        Pattern::Tuple {
+                            elems,
+                            location,
+                            multi_line,
+                        },
+                        type_,
+                    )
                 }
 
                 _ => {
@@ -362,6 +379,7 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                 name,
                 arguments: mut pattern_args,
                 with_spread,
+                multi_line,
                 ..
             } => {
                 // Register the value as seen for detection of unused values
@@ -477,6 +495,7 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                                 arguments: pattern_args,
                                 constructor,
                                 with_spread,
+                                multi_line,
                                 type_: instantiated_constructor_type,
                             })
                         } else {
@@ -501,6 +520,7 @@ impl<'a, 'b, 'c> PatternTyper<'a, 'b, 'c> {
                                 arguments: vec![],
                                 constructor,
                                 with_spread,
+                                multi_line,
                                 type_: instantiated_constructor_type,
                             })
                         } else {

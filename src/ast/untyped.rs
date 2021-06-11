@@ -39,6 +39,7 @@ pub enum UntypedExpr {
         location: SrcSpan,
         elements: Vec<Self>,
         tail: Option<Box<Self>>,
+        multi_line: bool,
     },
 
     Call {
@@ -91,6 +92,7 @@ pub enum UntypedExpr {
     Tuple {
         location: SrcSpan,
         elems: Vec<Self>,
+        multi_line: bool,
     },
 
     TupleIndex {
@@ -194,6 +196,13 @@ impl UntypedExpr {
             self,
             Self::String { .. } | Self::Int { .. } | Self::Float { .. }
         )
+    }
+
+    pub fn is_multi_line(&self) -> bool {
+        match self {
+            Self::Tuple { multi_line, .. } | Self::List { multi_line, ..} => *multi_line,
+            _ => false
+        }
     }
 }
 

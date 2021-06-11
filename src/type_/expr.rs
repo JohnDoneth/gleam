@@ -1582,6 +1582,7 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
                 location,
                 name,
                 args,
+                multi_line,
                 // field_map, is always None here because untyped not yet unified
                 ..
             } if args.is_empty() => {
@@ -1610,6 +1611,7 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
                     typ: constructor.type_,
                     tag,
                     field_map,
+                    multi_line,
                 })
             }
 
@@ -1617,6 +1619,7 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
                 module,
                 location,
                 name,
+                multi_line,
                 mut args,
                 // field_map, is always None here because untyped not yet unified
                 ..
@@ -1714,6 +1717,7 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
                     typ: return_type,
                     tag,
                     field_map,
+                    multi_line,
                 })
             }
         }?;
@@ -1740,7 +1744,11 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
             elements.push(element);
         }
 
-        Ok(Constant::Tuple { elements, location })
+        Ok(Constant::Tuple {
+            elements,
+            location,
+            multi_line: true,
+        })
     }
 
     fn infer_const_list(
@@ -1762,6 +1770,7 @@ impl<'a, 'b, 'c> ExprTyper<'a, 'b, 'c> {
             elements,
             location,
             typ: list(typ),
+            multi_line: true,
         })
     }
 

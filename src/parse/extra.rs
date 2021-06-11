@@ -6,6 +6,7 @@ pub struct ModuleExtra {
     pub doc_comments: Vec<SrcSpan>,
     pub comments: Vec<SrcSpan>,
     pub empty_lines: Vec<usize>,
+    pub new_lines: Vec<usize>,
 }
 
 impl ModuleExtra {
@@ -15,6 +16,7 @@ impl ModuleExtra {
             doc_comments: vec![],
             comments: vec![],
             empty_lines: vec![],
+            new_lines: vec![],
         }
     }
 }

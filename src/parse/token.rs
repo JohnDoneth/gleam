@@ -56,6 +56,7 @@ pub enum Token {
     CommentDoc,
     CommentModule,
     EmptyLine,
+    NewLine,
     // Keywords (alphabetically):
     As,
     Assert,
@@ -149,6 +150,7 @@ impl fmt::Display for Token {
             Token::CommentDoc => "///",
             Token::CommentModule => "////",
             Token::EmptyLine => "EMPTYLINE",
+            Token::NewLine => "\n",
             Token::As => "as",
             Token::Assert => "assert",
             Token::Case => "case",

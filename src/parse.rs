@@ -305,6 +305,16 @@ where
         ))
     }
 
+    fn newline_in_span(&self, start: usize, end: usize) -> bool {
+        for pos in &self.extra.new_lines {
+            if *pos > start && *pos < end {
+                dbg!((start, pos, end));
+                return true;
+            }
+        }
+        false
+    }
+
     // examples:
     //   1
     //   "one"
@@ -314,6 +324,12 @@ where
     //   A(a.., label: tuple(1))
     //   { expression_sequence }
     fn parse_expression_unit(&mut self) -> Result<Option<UntypedExpr>, ParseError> {
+        // if *sep == Token::EmptyLine {
+        //     found_newline = true;
+        //     dbg!(found_newline);
+        // }
+        //dbg!(&self.tok0);
+
         let mut expr = match self.tok0.take() {
             Some((start, Token::String { value }, end)) => {
                 let _ = self.next_tok();
@@ -369,6 +385,7 @@ where
                 UntypedExpr::Tuple {
                     location: SrcSpan { start, end },
                     elems,
+                    multi_line: self.newline_in_span(start, end),
                 }
             }
             // list
@@ -387,6 +404,7 @@ where
                     location: SrcSpan { start, end },
                     elements,
                     tail,
+                    multi_line: self.newline_in_span(start, end),
                 }
             }
             // Bitstring
@@ -761,6 +779,7 @@ where
                 Pattern::Tuple {
                     location: SrcSpan { start, end },
                     elems,
+                    multi_line: self.newline_in_span(start, end),
                 }
             }
             // Bitstring
@@ -826,6 +845,7 @@ where
                     location: SrcSpan { start, end },
                     elements,
                     tail: tail.map(Box::new),
+                    multi_line: self.newline_in_span(start, end),
                 }
             }
 
@@ -1041,6 +1061,7 @@ where
             with_spread,
             constructor: (),
             type_: (),
+            multi_line: self.newline_in_span(start, end),
         })
     }
 
@@ -1889,6 +1910,7 @@ where
                 let (_, end) = self.expect_one(&Token::RightParen)?;
                 Ok(Some(Constant::Tuple {
                     elements,
+                    multi_line: self.newline_in_span(start, end),
                     location: SrcSpan { start, end },
                 }))
             }
@@ -1900,6 +1922,7 @@ where
                 let (_, end) = self.expect_one(&Token::RightSquare)?;
                 Ok(Some(Constant::List {
                     elements,
+                    multi_line: self.newline_in_span(start, end),
                     location: SrcSpan { start, end },
                     typ: (),
                 }))
@@ -1970,6 +1993,7 @@ where
                 module,
                 name,
                 args,
+                multi_line: self.newline_in_span(start, end),
                 tag: (),
                 typ: (),
                 field_map: None,
@@ -1983,6 +2007,7 @@ where
                 tag: (),
                 typ: (),
                 field_map: None,
+                multi_line: self.newline_in_span(start, end),
             }))
         }
     }
@@ -2352,6 +2377,9 @@ where
                 // gather and skip extra
                 Some(Ok((s, Token::EmptyLine, _))) => {
                     self.extra.empty_lines.push(s);
+                }
+                Some(Ok((s, Token::NewLine, _))) => {
+                    self.extra.new_lines.push(s);
                 }
                 Some(Ok((start, Token::CommentNormal, end))) => {
                     self.extra.comments.push(SrcSpan { start, end });

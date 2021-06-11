@@ -640,6 +640,7 @@ pub enum Pattern<Constructor, Type> {
         location: SrcSpan,
         elements: Vec<Self>,
         tail: Option<Box<Self>>,
+        multi_line: bool,
     },
 
     /// The constructor for a custom type. Starts with an uppercase letter.
@@ -651,11 +652,13 @@ pub enum Pattern<Constructor, Type> {
         constructor: Constructor,
         with_spread: bool,
         type_: Type,
+        multi_line: bool,
     },
 
     Tuple {
         location: SrcSpan,
         elems: Vec<Self>,
+        multi_line: bool,
     },
 
     BitString {

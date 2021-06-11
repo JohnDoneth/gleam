@@ -295,9 +295,16 @@ impl<'comments> Formatter<'comments> {
                 list(concat(elements), None)
             }
 
-            Constant::Tuple { elements, .. } => "#"
+            Constant::Tuple {
+                elements,
+                multi_line,
+                ..
+            } => "#"
                 .to_doc()
-                .append(wrap_args(elements.iter().map(|e| self.const_expr(e))))
+                .append(wrap_args(
+                    elements.iter().map(|e| self.const_expr(e)),
+                    *multi_line,
+                ))
                 .group(),
 
             Constant::BitString { segments, .. } => bit_string(
@@ -324,23 +331,31 @@ impl<'comments> Formatter<'comments> {
             Constant::Record {
                 name,
                 args,
+                multi_line,
                 module: None,
                 ..
             } => name
                 .to_doc()
-                .append(wrap_args(args.iter().map(|a| self.constant_call_arg(a))))
+                .append(wrap_args(
+                    args.iter().map(|a| self.constant_call_arg(a)),
+                    *multi_line,
+                ))
                 .group(),
 
             Constant::Record {
                 name,
                 args,
+                multi_line,
                 module: Some(m),
                 ..
             } => m
                 .to_doc()
                 .append(".")
                 .append(name.as_str())
-                .append(wrap_args(args.iter().map(|a| self.constant_call_arg(a))))
+                .append(wrap_args(
+                    args.iter().map(|a| self.constant_call_arg(a)),
+                    *multi_line,
+                ))
                 .group(),
         }
     }
@@ -428,7 +443,7 @@ impl<'comments> Formatter<'comments> {
     }
 
     fn type_arguments<'a>(&mut self, args: &'a [TypeAst]) -> Document<'a> {
-        wrap_args(args.iter().map(|t| self.type_ast(t)))
+        wrap_args(args.iter().map(|t| self.type_ast(t)), false)
     }
 
     pub fn type_alias<'a>(
@@ -443,7 +458,7 @@ impl<'comments> Formatter<'comments> {
         let head = if args.is_empty() {
             head
         } else {
-            head.append(wrap_args(args.iter().map(|e| e.to_doc())).group())
+            head.append(wrap_args(args.iter().map(|e| e.to_doc()), false).group())
         };
 
         head.append(" =")
@@ -473,7 +488,7 @@ impl<'comments> Formatter<'comments> {
         let head = pub_(*public)
             .append("fn ")
             .append(name)
-            .append(wrap_args(args.iter().map(|e| self.fn_arg(e))));
+            .append(wrap_args(args.iter().map(|e| self.fn_arg(e)), false));
 
         // Add return annotation
         let head = match return_annotation {
@@ -520,7 +535,7 @@ impl<'comments> Formatter<'comments> {
         return_annotation: Option<&'a TypeAst>,
         body: &'a UntypedExpr,
     ) -> Document<'a> {
-        let args = wrap_args(args.iter().map(|e| self.fn_arg(e))).group();
+        let args = wrap_args(args.iter().map(|e| self.fn_arg(e)), false).group();
         let body = match body {
             UntypedExpr::Case { .. } => force_break().append(self.expr(body)),
             _ => self.expr(body),
@@ -645,7 +660,7 @@ impl<'comments> Formatter<'comments> {
                 ..
             } => self.expr_fn(args, return_annotation.as_ref(), body),
 
-            UntypedExpr::List { elements, tail, .. } => self.list(elements, tail.as_deref()),
+            UntypedExpr::List { elements, tail, multi_line, .. } => self.list(elements, tail.as_deref(), *multi_line),
 
             UntypedExpr::Call {
                 fun,
@@ -681,9 +696,9 @@ impl<'comments> Formatter<'comments> {
                 label, container, ..
             } => self.expr(container).append(".").append(label.as_str()),
 
-            UntypedExpr::Tuple { elems, .. } => "#"
+            UntypedExpr::Tuple { elems, multi_line, .. } => "#"
                 .to_doc()
-                .append(wrap_args(elems.iter().map(|e| self.wrap_expr(e))))
+                .append(wrap_args(elems.iter().map(|e| self.wrap_expr(e)), *multi_line))
                 .group(),
 
             UntypedExpr::BitString { segments, .. } => bit_string(
@@ -741,7 +756,10 @@ impl<'comments> Formatter<'comments> {
                     .group(),
 
                 _ => name
-                    .append(wrap_args(args.iter().map(|a| self.pattern_call_arg(a))))
+                    .append(wrap_args(
+                        args.iter().map(|a| self.pattern_call_arg(a)),
+                        false,
+                    ))
                     .group(),
             }
         }
@@ -772,7 +790,7 @@ impl<'comments> Formatter<'comments> {
 
             _ => self
                 .expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a))))
+                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), fun.is_multi_line()))
                 .group(),
         }
     }
@@ -814,7 +832,9 @@ impl<'comments> Formatter<'comments> {
         let spread_doc = "..".to_doc().append(spread.name.to_doc());
         let arg_docs = args.iter().map(|a| self.record_update_arg(a));
         let all_arg_docs = once(spread_doc).chain(arg_docs);
-        constructor_doc.append(wrap_args(all_arg_docs)).group()
+        constructor_doc
+            .append(wrap_args(all_arg_docs, false))
+            .group()
     }
 
     pub fn bin_op<'a>(
@@ -905,11 +925,11 @@ impl<'comments> Formatter<'comments> {
         } else if hole_in_first_position {
             // x |> fun(_, 2, 3)
             self.expr(fun)
-                .append(wrap_args(args.iter().skip(1).map(|a| self.call_arg(a))).group())
+                .append(wrap_args(args.iter().skip(1).map(|a| self.call_arg(a)), fun.is_multi_line()).group())
         } else {
             // x |> fun(1, _, 3)
             self.expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a))).group())
+                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), fun.is_multi_line()).group())
         }
     }
 
@@ -921,7 +941,7 @@ impl<'comments> Formatter<'comments> {
                 ..
             } => self
                 .expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a))).group()),
+                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), call.is_multi_line()).group()),
 
             // The body of a capture being not a fn shouldn't be possible...
             _ => crate::error::fatal_compiler_bug(
@@ -943,25 +963,28 @@ impl<'comments> Formatter<'comments> {
             constructor
                 .name
                 .to_doc()
-                .append(wrap_args(constructor.arguments.iter().map(
-                    |RecordConstructorArg {
-                         label,
-                         ast,
-                         location,
-                         ..
-                     }| {
-                        let arg_comments = self.pop_comments(location.start);
-                        let arg = match label {
-                            Some(l) => l.to_doc().append(": ").append(self.type_ast(ast)),
-                            None => self.type_ast(ast),
-                        };
+                .append(wrap_args(
+                    constructor.arguments.iter().map(
+                        |RecordConstructorArg {
+                             label,
+                             ast,
+                             location,
+                             ..
+                         }| {
+                            let arg_comments = self.pop_comments(location.start);
+                            let arg = match label {
+                                Some(l) => l.to_doc().append(": ").append(self.type_ast(ast)),
+                                None => self.type_ast(ast),
+                            };
 
-                        commented(
-                            self.doc_comments(location.start).append(arg).group(),
-                            arg_comments,
-                        )
-                    },
-                )))
+                            commented(
+                                self.doc_comments(location.start).append(arg).group(),
+                                arg_comments,
+                            )
+                        },
+                    ),
+                    false,
+                ))
                 .group()
         };
 
@@ -985,7 +1008,7 @@ impl<'comments> Formatter<'comments> {
                 name.to_doc()
             } else {
                 name.to_doc()
-                    .append(wrap_args(args.iter().map(|e| e.as_str().to_doc())))
+                    .append(wrap_args(args.iter().map(|e| e.as_str().to_doc()), false))
                     .group()
             })
             .append(" {")
@@ -1018,7 +1041,7 @@ impl<'comments> Formatter<'comments> {
                 name.to_doc()
             } else {
                 name.to_doc()
-                    .append(wrap_args(args.iter().map(|e| e.as_str().to_doc())))
+                    .append(wrap_args(args.iter().map(|e| e.as_str().to_doc()), false))
             })
     }
 
@@ -1045,12 +1068,15 @@ impl<'comments> Formatter<'comments> {
         args: &'a [TypedArg],
         printer: &mut type_::pretty::Printer,
     ) -> Document<'a> {
-        wrap_args(args.iter().map(|arg| {
-            arg.names
-                .to_doc()
-                .append(": ".to_doc().append(printer.print(&arg.type_)))
-                .group()
-        }))
+        wrap_args(
+            args.iter().map(|arg| {
+                arg.names
+                    .to_doc()
+                    .append(": ".to_doc().append(printer.print(&arg.type_)))
+                    .group()
+            }),
+            false,
+        )
     }
 
     fn external_fn_arg<'a, A>(&mut self, arg: &'a ExternalFnArg<A>) -> Document<'a> {
@@ -1060,7 +1086,7 @@ impl<'comments> Formatter<'comments> {
     }
 
     fn external_fn_args<'a, A>(&mut self, args: &'a [ExternalFnArg<A>]) -> Document<'a> {
-        wrap_args(args.iter().map(|e| self.external_fn_arg(e)))
+        wrap_args(args.iter().map(|e| self.external_fn_arg(e)), false)
     }
 
     fn wrap_expr<'a>(&mut self, expr: &'a UntypedExpr) -> Document<'a> {
@@ -1179,7 +1205,7 @@ impl<'comments> Formatter<'comments> {
             .append(if args.is_empty() {
                 nil()
             } else {
-                wrap_args(args.iter().map(|e| e.to_doc()))
+                wrap_args(args.iter().map(|e| e.to_doc()), false)
             })
     }
 
@@ -1187,19 +1213,36 @@ impl<'comments> Formatter<'comments> {
         &mut self,
         elements: &'a [UntypedExpr],
         tail: Option<&'a UntypedExpr>,
+        multi_line: bool,
     ) -> Document<'a> {
-        let comma: fn() -> Document<'a> =
-            if tail.is_none() && elements.iter().all(|e| e.is_simple_constant()) {
-                || break_(",", ", ").flex_break()
-            } else {
-                || break_(",", ", ")
-            };
-        let elements = concat(Itertools::intersperse(
-            elements.iter().map(|e| self.wrap_expr(e)),
-            comma(),
-        ));
-        let tail = tail.map(|e| self.expr(e));
-        list(elements, tail)
+
+        if multi_line {
+            let comma: fn() -> Document<'a> =
+                if tail.is_none() && elements.iter().all(|e| e.is_simple_constant()) {
+                    || break_(",", ", ").append(line()).nest(INDENT).flex_break()
+                } else {
+                    || break_(",", ", ")
+                };
+            let elements = concat(Itertools::intersperse(
+                elements.iter().map(|e| self.wrap_expr(e)),
+                comma(),
+            ));
+            let tail = tail.map(|e| self.expr(e));
+            list(elements, tail)
+        } else {
+            let comma: fn() -> Document<'a> =
+                if tail.is_none() && elements.iter().all(|e| e.is_simple_constant()) {
+                    || break_(",", ", ").flex_break()
+                } else {
+                    || break_(",", ", ")
+                };
+            let elements = concat(Itertools::intersperse(
+                elements.iter().map(|e| self.wrap_expr(e)),
+                comma(),
+            ));
+            let tail = tail.map(|e| self.expr(e));
+            list(elements, tail)
+        }
     }
 
     fn pattern<'a>(&mut self, pattern: &'a UntypedPattern) -> Document<'a> {
@@ -1238,9 +1281,9 @@ impl<'comments> Formatter<'comments> {
                 ..
             } => self.pattern_constructor(name, args, module, *with_spread),
 
-            Pattern::Tuple { elems, .. } => "#"
+            Pattern::Tuple { elems, multi_line, .. } => "#"
                 .to_doc()
-                .append(wrap_args(elems.iter().map(|e| self.pattern(e))))
+                .append(wrap_args(elems.iter().map(|e| self.pattern(e)), *multi_line))
                 .group(),
 
             Pattern::BitString { segments, .. } => bit_string(
@@ -1405,19 +1448,34 @@ impl<'a> Documentable<'a> for &'a BinOp {
     }
 }
 
-pub fn wrap_args<'a, I>(args: I) -> Document<'a>
+pub fn wrap_args<'a, I>(args: I, multi_line: bool) -> Document<'a>
 where
     I: Iterator<Item = Document<'a>>,
 {
     let mut args = args.peekable();
+
     if args.peek().is_none() {
         return "()".to_doc();
     }
-    break_("(", "(")
-        .append(concat(Itertools::intersperse(args, break_(",", ", "))))
-        .nest(INDENT)
-        .append(break_(",", ""))
-        .append(")")
+
+    if multi_line {
+        dbg!(break_("(", "(")
+            .append(line())
+            .append(concat(Itertools::intersperse(
+                args,
+                break_(",", ", ").append(line())
+            )))
+            .append(break_(",", ", "))
+            .nest(INDENT)
+            .append(line())
+            .append(")"))
+    } else {
+        break_("(", "(")
+            .append(concat(Itertools::intersperse(args, break_(",", ", "))))
+            .nest(INDENT)
+            .append(break_(",", ""))
+            .append(")")
+    }
 }
 
 pub fn wrap_args_with_spread<'a, I>(args: I) -> Document<'a>

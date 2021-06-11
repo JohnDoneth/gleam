@@ -24,12 +24,14 @@ pub enum Constant<T, RecordTag> {
     Tuple {
         location: SrcSpan,
         elements: Vec<Self>,
+        multi_line: bool,
     },
 
     List {
         location: SrcSpan,
         elements: Vec<Self>,
         typ: T,
+        multi_line: bool,
     },
 
     Record {
@@ -40,6 +42,7 @@ pub enum Constant<T, RecordTag> {
         tag: RecordTag,
         typ: T,
         field_map: Option<FieldMap>,
+        multi_line: bool,
     },
 
     BitString {

@@ -185,6 +185,7 @@ impl ModuleDecoder {
         Ok(Constant::Tuple {
             location: Default::default(),
             elements: read_vec!(reader, self, constant),
+            multi_line: true,
         })
     }
 
@@ -194,6 +195,7 @@ impl ModuleDecoder {
             location: Default::default(),
             elements: read_vec!(reader.get_elements()?, self, constant),
             typ: type_,
+            multi_line: true,
         })
     }
 
@@ -208,6 +210,7 @@ impl ModuleDecoder {
             args,
             tag,
             typ: type_,
+            multi_line: true,
             field_map: None,
         })
     }
