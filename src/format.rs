@@ -1499,13 +1499,13 @@ where
     }
 
     if multi_line {
-        break_("(", "(")
+        "(".to_doc()
             .append(line())
             .append(concat(Itertools::intersperse(
                 args,
-                break_(",", ", ").append(line()),
+                ",".to_doc().append(line()),
             )))
-            .append(break_(",", ", "))
+            .append(",".to_doc())
             .nest(INDENT)
             .append(line())
             .append(")")
