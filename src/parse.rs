@@ -308,7 +308,7 @@ where
     fn newline_in_span(&self, start: usize, end: usize) -> bool {
         for pos in &self.extra.new_lines {
             if *pos > start && *pos < end {
-                dbg!((start, pos, end));
+                //dbg!((start, pos, end));
                 return true;
             }
         }

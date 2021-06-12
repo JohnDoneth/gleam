@@ -284,7 +284,7 @@ impl<'comments> Formatter<'comments> {
 
             Constant::String { value, .. } => value.to_doc().surround("\"", "\""),
 
-            Constant::List { elements, .. } => {
+            Constant::List { elements, multi_line, .. } => {
                 let comma: fn() -> Document<'a> = if elements.iter().all(|e| e.is_simple()) {
                     || break_(",", ", ").flex_break()
                 } else {
@@ -292,7 +292,7 @@ impl<'comments> Formatter<'comments> {
                 };
                 let elements =
                     Itertools::intersperse(elements.iter().map(|e| self.const_expr(e)), comma());
-                list(concat(elements), None)
+                list(concat(elements), None, *multi_line)
             }
 
             Constant::Tuple {
@@ -1217,18 +1217,16 @@ impl<'comments> Formatter<'comments> {
     ) -> Document<'a> {
 
         if multi_line {
-            let comma: fn() -> Document<'a> =
-                if tail.is_none() && elements.iter().all(|e| e.is_simple_constant()) {
-                    || break_(",", ", ").append(line()).nest(INDENT).flex_break()
-                } else {
-                    || break_(",", ", ")
-                };
-            let elements = concat(Itertools::intersperse(
-                elements.iter().map(|e| self.wrap_expr(e)),
-                comma(),
-            ));
+            let elements = 
+                line()
+                .append(concat(Itertools::intersperse(
+                    elements.iter().map(|e| self.wrap_expr(e)),
+                    break_(",", ",").append(line())
+                )))
+                .append(break_(",", ","));
+
             let tail = tail.map(|e| self.expr(e));
-            list(elements, tail)
+            dbg!(list(elements, tail, true))
         } else {
             let comma: fn() -> Document<'a> =
                 if tail.is_none() && elements.iter().all(|e| e.is_simple_constant()) {
@@ -1241,7 +1239,7 @@ impl<'comments> Formatter<'comments> {
                 comma(),
             ));
             let tail = tail.map(|e| self.expr(e));
-            list(elements, tail)
+            list(elements, tail, false)
         }
     }
 
@@ -1264,13 +1262,13 @@ impl<'comments> Formatter<'comments> {
 
             Pattern::Discard { name, .. } => name.to_doc(),
 
-            Pattern::List { elements, tail, .. } => {
+            Pattern::List { elements, tail, multi_line, .. } => {
                 let elements = concat(Itertools::intersperse(
                     elements.iter().map(|e| self.pattern(e)),
                     break_(",", ", "),
                 ));
                 let tail = tail.as_ref().map(|e| self.pattern(e));
-                list(elements, tail)
+                list(elements, tail, *multi_line)
             }
 
             Pattern::Constructor {
@@ -1459,7 +1457,7 @@ where
     }
 
     if multi_line {
-        dbg!(break_("(", "(")
+        break_("(", "(")
             .append(line())
             .append(concat(Itertools::intersperse(
                 args,
@@ -1468,7 +1466,7 @@ where
             .append(break_(",", ", "))
             .nest(INDENT)
             .append(line())
-            .append(")"))
+            .append(")")
     } else {
         break_("(", "(")
             .append(concat(Itertools::intersperse(args, break_(",", ", "))))
@@ -1511,11 +1509,17 @@ fn bit_string<'a>(segments: impl Iterator<Item = Document<'a>>, is_simple: bool)
         .group()
 }
 
-fn list<'a>(elems: Document<'a>, tail: Option<Document<'a>>) -> Document<'a> {
+fn list<'a>(elems: Document<'a>, tail: Option<Document<'a>>, multi_line: bool) -> Document<'a> {
     let doc = break_("[", "[").append(elems);
 
+    let newline = if multi_line {
+        line()
+    } else {
+        nil()
+    };
+
     match tail {
-        None => doc.nest(INDENT).append(break_(",", "")),
+        None => doc.nest(INDENT).append(newline).append(break_(",", "")),
 
         // Don't print tail if it is a discard
         Some(Document::String(t)) if t == *"_" => doc

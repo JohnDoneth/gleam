@@ -418,7 +418,7 @@ where
                 let _ = self.next_char();
                 let tok_start = self.get_pos();
                 self.emit((tok_start, Token::NewLine, tok_start));
-                dbg!(tok_start);
+                //dbg!(tok_start);
 
                 while let Some(c) = self.chr0 {
                     match c {
