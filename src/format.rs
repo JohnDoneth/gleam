@@ -184,8 +184,17 @@ impl<'comments> Formatter<'comments> {
                 public,
                 return_annotation,
                 end_location,
+                multi_line,
                 ..
-            } => self.statement_fn(public, name, args, return_annotation, body, *end_location),
+            } => self.statement_fn(
+                public,
+                name,
+                args,
+                return_annotation,
+                body,
+                *end_location,
+                *multi_line,
+            ),
 
             Statement::TypeAlias {
                 alias,
@@ -284,7 +293,11 @@ impl<'comments> Formatter<'comments> {
 
             Constant::String { value, .. } => value.to_doc().surround("\"", "\""),
 
-            Constant::List { elements, multi_line, .. } => {
+            Constant::List {
+                elements,
+                multi_line,
+                ..
+            } => {
                 let comma: fn() -> Document<'a> = if elements.iter().all(|e| e.is_simple()) {
                     || break_(",", ", ").flex_break()
                 } else {
@@ -483,12 +496,13 @@ impl<'comments> Formatter<'comments> {
         return_annotation: &'a Option<TypeAst>,
         body: &'a UntypedExpr,
         end_location: usize,
+        multi_line: bool,
     ) -> Document<'a> {
         // Fn name and args
         let head = pub_(*public)
             .append("fn ")
             .append(name)
-            .append(wrap_args(args.iter().map(|e| self.fn_arg(e)), false));
+            .append(wrap_args(args.iter().map(|e| self.fn_arg(e)), multi_line));
 
         // Add return annotation
         let head = match return_annotation {
@@ -660,13 +674,19 @@ impl<'comments> Formatter<'comments> {
                 ..
             } => self.expr_fn(args, return_annotation.as_ref(), body),
 
-            UntypedExpr::List { elements, tail, multi_line, .. } => self.list(elements, tail.as_deref(), *multi_line),
+            UntypedExpr::List {
+                elements,
+                tail,
+                multi_line,
+                ..
+            } => self.list(elements, tail.as_deref(), *multi_line),
 
             UntypedExpr::Call {
                 fun,
                 arguments: args,
+                multi_line,
                 ..
-            } => self.call(fun, args),
+            } => self.call(fun, args, *multi_line),
 
             UntypedExpr::BinOp {
                 name, left, right, ..
@@ -696,9 +716,14 @@ impl<'comments> Formatter<'comments> {
                 label, container, ..
             } => self.expr(container).append(".").append(label.as_str()),
 
-            UntypedExpr::Tuple { elems, multi_line, .. } => "#"
+            UntypedExpr::Tuple {
+                elems, multi_line, ..
+            } => "#"
                 .to_doc()
-                .append(wrap_args(elems.iter().map(|e| self.wrap_expr(e)), *multi_line))
+                .append(wrap_args(
+                    elems.iter().map(|e| self.wrap_expr(e)),
+                    *multi_line,
+                ))
                 .group(),
 
             UntypedExpr::BitString { segments, .. } => bit_string(
@@ -765,7 +790,7 @@ impl<'comments> Formatter<'comments> {
         }
     }
 
-    fn call<'a>(&mut self, fun: &'a UntypedExpr, args: &'a [CallArg<UntypedExpr>]) -> Document<'a> {
+    fn call<'a>(&mut self, fun: &'a UntypedExpr, args: &'a [CallArg<UntypedExpr>], multi_line: bool) -> Document<'a> {
         fn is_breakable(expr: &UntypedExpr) -> bool {
             matches!(
                 expr,
@@ -790,7 +815,10 @@ impl<'comments> Formatter<'comments> {
 
             _ => self
                 .expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), fun.is_multi_line()))
+                .append(wrap_args(
+                    args.iter().map(|a| self.call_arg(a)),
+                    multi_line,
+                ))
                 .group(),
         }
     }
@@ -924,12 +952,18 @@ impl<'comments> Formatter<'comments> {
             self.expr(fun)
         } else if hole_in_first_position {
             // x |> fun(_, 2, 3)
-            self.expr(fun)
-                .append(wrap_args(args.iter().skip(1).map(|a| self.call_arg(a)), fun.is_multi_line()).group())
+            self.expr(fun).append(
+                wrap_args(
+                    args.iter().skip(1).map(|a| self.call_arg(a)),
+                    fun.is_multi_line(),
+                )
+                .group(),
+            )
         } else {
             // x |> fun(1, _, 3)
-            self.expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), fun.is_multi_line()).group())
+            self.expr(fun).append(
+                wrap_args(args.iter().map(|a| self.call_arg(a)), fun.is_multi_line()).group(),
+            )
         }
     }
 
@@ -939,9 +973,9 @@ impl<'comments> Formatter<'comments> {
                 fun,
                 arguments: args,
                 ..
-            } => self
-                .expr(fun)
-                .append(wrap_args(args.iter().map(|a| self.call_arg(a)), call.is_multi_line()).group()),
+            } => self.expr(fun).append(
+                wrap_args(args.iter().map(|a| self.call_arg(a)), call.is_multi_line()).group(),
+            ),
 
             // The body of a capture being not a fn shouldn't be possible...
             _ => crate::error::fatal_compiler_bug(
@@ -1215,13 +1249,11 @@ impl<'comments> Formatter<'comments> {
         tail: Option<&'a UntypedExpr>,
         multi_line: bool,
     ) -> Document<'a> {
-
         if multi_line {
-            let elements = 
-                line()
+            let elements = line()
                 .append(concat(Itertools::intersperse(
                     elements.iter().map(|e| self.wrap_expr(e)),
-                    break_(",", ",").append(line())
+                    break_(",", ",").append(line()),
                 )))
                 .append(break_(",", ","));
 
@@ -1262,7 +1294,12 @@ impl<'comments> Formatter<'comments> {
 
             Pattern::Discard { name, .. } => name.to_doc(),
 
-            Pattern::List { elements, tail, multi_line, .. } => {
+            Pattern::List {
+                elements,
+                tail,
+                multi_line,
+                ..
+            } => {
                 let elements = concat(Itertools::intersperse(
                     elements.iter().map(|e| self.pattern(e)),
                     break_(",", ", "),
@@ -1279,9 +1316,14 @@ impl<'comments> Formatter<'comments> {
                 ..
             } => self.pattern_constructor(name, args, module, *with_spread),
 
-            Pattern::Tuple { elems, multi_line, .. } => "#"
+            Pattern::Tuple {
+                elems, multi_line, ..
+            } => "#"
                 .to_doc()
-                .append(wrap_args(elems.iter().map(|e| self.pattern(e)), *multi_line))
+                .append(wrap_args(
+                    elems.iter().map(|e| self.pattern(e)),
+                    *multi_line,
+                ))
                 .group(),
 
             Pattern::BitString { segments, .. } => bit_string(
@@ -1461,7 +1503,7 @@ where
             .append(line())
             .append(concat(Itertools::intersperse(
                 args,
-                break_(",", ", ").append(line())
+                break_(",", ", ").append(line()),
             )))
             .append(break_(",", ", "))
             .nest(INDENT)
@@ -1512,11 +1554,7 @@ fn bit_string<'a>(segments: impl Iterator<Item = Document<'a>>, is_simple: bool)
 fn list<'a>(elems: Document<'a>, tail: Option<Document<'a>>, multi_line: bool) -> Document<'a> {
     let doc = break_("[", "[").append(elems);
 
-    let newline = if multi_line {
-        line()
-    } else {
-        nil()
-    };
+    let newline = if multi_line { line() } else { nil() };
 
     match tail {
         None => doc.nest(INDENT).append(newline).append(break_(",", "")),

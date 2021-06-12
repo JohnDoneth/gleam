@@ -46,6 +46,7 @@ pub enum UntypedExpr {
         location: SrcSpan,
         fun: Box<Self>,
         arguments: Vec<CallArg<Self>>,
+        multi_line: bool,
     },
 
     BinOp {
@@ -200,8 +201,8 @@ impl UntypedExpr {
 
     pub fn is_multi_line(&self) -> bool {
         match self {
-            Self::Tuple { multi_line, .. } | Self::List { multi_line, ..} => *multi_line,
-            _ => false
+            Self::Tuple { multi_line, .. } | Self::List { multi_line, .. } => *multi_line,
+            _ => false,
         }
     }
 }

@@ -842,6 +842,7 @@ fn generalise_statement(
             return_annotation,
             end_location,
             return_type,
+            multi_line,
         } => {
             // Lookup the inferred function information
             let function = environment
@@ -884,6 +885,7 @@ fn generalise_statement(
                 return_annotation,
                 return_type,
                 body,
+                multi_line,
             }
         }
 
@@ -975,6 +977,7 @@ fn infer_statement(
                     .return_type()
                     .gleam_expect("Could not find return type for fn"),
                 body,
+                multi_line: false,
             })
         }
 

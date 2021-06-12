@@ -590,7 +590,7 @@ where
                     // Call
                     let args = self.parse_fn_args()?;
                     let (_, end) = self.expect_one(&Token::RightParen)?;
-                    match make_call(expr, args, start, end) {
+                    match self.make_call(expr, args, start, end) {
                         Ok(e) => expr = e,
                         Err(_) => {
                             return parse_error(
@@ -1199,6 +1199,7 @@ where
                 body,
                 return_type: (),
                 return_annotation,
+                multi_line: self.newline_in_span(start, end),
             }))
         } else {
             self.next_tok_unexpected(vec!["The body of a function".to_string()])
@@ -2412,6 +2413,61 @@ where
         self.tok1 = nxt.take();
         t
     }
+
+    fn make_call(
+        &mut self,
+        fun: UntypedExpr,
+        args: Vec<ParserArg>,
+        start: usize,
+        end: usize,
+    ) -> Result<UntypedExpr, ParseError> {
+        let mut num_holes = 0;
+        let args = args
+            .into_iter()
+            .map(|a| match a {
+                ParserArg::Arg(arg) => arg,
+                ParserArg::Hole { location, label } => {
+                    num_holes += 1;
+                    CallArg {
+                        label,
+                        location,
+                        value: UntypedExpr::Var {
+                            location,
+                            name: CAPTURE_VARIABLE.to_string(),
+                        },
+                    }
+                }
+            })
+            .collect();
+        let call = UntypedExpr::Call {
+            location: SrcSpan { start, end },
+            fun: Box::new(fun),
+            arguments: args,
+            multi_line: self.newline_in_span(start, end),
+        };
+        match num_holes {
+            // A normal call
+            0 => Ok(call),
+
+            // An anon function using the capture syntax run(_, 1, 2)
+            1 => Ok(UntypedExpr::Fn {
+                location: call.location(),
+                is_capture: true,
+                arguments: vec![Arg {
+                    location: SrcSpan { start: 0, end: 0 },
+                    annotation: None,
+                    names: ArgNames::Named {
+                        name: CAPTURE_VARIABLE.to_string(),
+                    },
+                    type_: (),
+                }],
+                body: Box::new(call),
+                return_annotation: None,
+            }),
+
+            _ => parse_error(ParseErrorType::TooManyArgHoles, call.location()),
+        }
+    }
 }
 
 // Operator Precedence Parsing
@@ -2727,57 +2783,4 @@ pub enum ParserArg {
         location: SrcSpan,
         label: Option<String>,
     },
-}
-
-pub fn make_call(
-    fun: UntypedExpr,
-    args: Vec<ParserArg>,
-    start: usize,
-    end: usize,
-) -> Result<UntypedExpr, ParseError> {
-    let mut num_holes = 0;
-    let args = args
-        .into_iter()
-        .map(|a| match a {
-            ParserArg::Arg(arg) => arg,
-            ParserArg::Hole { location, label } => {
-                num_holes += 1;
-                CallArg {
-                    label,
-                    location,
-                    value: UntypedExpr::Var {
-                        location,
-                        name: CAPTURE_VARIABLE.to_string(),
-                    },
-                }
-            }
-        })
-        .collect();
-    let call = UntypedExpr::Call {
-        location: SrcSpan { start, end },
-        fun: Box::new(fun),
-        arguments: args,
-    };
-    match num_holes {
-        // A normal call
-        0 => Ok(call),
-
-        // An anon function using the capture syntax run(_, 1, 2)
-        1 => Ok(UntypedExpr::Fn {
-            location: call.location(),
-            is_capture: true,
-            arguments: vec![Arg {
-                location: SrcSpan { start: 0, end: 0 },
-                annotation: None,
-                names: ArgNames::Named {
-                    name: CAPTURE_VARIABLE.to_string(),
-                },
-                type_: (),
-            }],
-            body: Box::new(call),
-            return_annotation: None,
-        }),
-
-        _ => parse_error(ParseErrorType::TooManyArgHoles, call.location()),
-    }
 }

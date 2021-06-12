@@ -447,7 +447,7 @@ fn constant_tuple() {
                 multi_line: false,
             },
         ],
-        multi_line: false
+        multi_line: false,
     });
 
     assert_eq!(roundtrip(&module), module);
@@ -472,7 +472,7 @@ fn constant_list() {
                 value: "3".to_string(),
             },
         ],
-        multi_line: false
+        multi_line: false,
     });
 
     assert_eq!(roundtrip(&module), module);
@@ -505,7 +505,7 @@ fn constant_record() {
         tag: "thetag".to_string(),
         typ: type_::int(),
         field_map: None,
-        multi_line: false
+        multi_line: false,
     });
 
     assert_eq!(roundtrip(&module), module);

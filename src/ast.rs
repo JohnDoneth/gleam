@@ -194,6 +194,7 @@ pub enum Statement<T, Expr, ConstantRecordTag, PackageName> {
         return_annotation: Option<TypeAst>,
         return_type: T,
         doc: Option<String>,
+        multi_line: bool,
     },
 
     TypeAlias {
