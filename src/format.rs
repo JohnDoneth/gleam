@@ -298,14 +298,25 @@ impl<'comments> Formatter<'comments> {
                 multi_line,
                 ..
             } => {
-                let comma: fn() -> Document<'a> = if elements.iter().all(|e| e.is_simple()) {
-                    || break_(",", ", ").flex_break()
+                if *multi_line {
+                    let elements = line()
+                    .append(concat(Itertools::intersperse(
+                        elements.iter().map(|e| self.const_expr(e)),
+                        break_(",", ",").append(line()),
+                    )))
+                    .append(break_(",", ","));
+
+                    dbg!(list(elements, None, true))
                 } else {
-                    || break_(",", ", ")
-                };
-                let elements =
-                    Itertools::intersperse(elements.iter().map(|e| self.const_expr(e)), comma());
-                list(concat(elements), None, *multi_line)
+                    let comma: fn() -> Document<'a> = if elements.iter().all(|e| e.is_simple()) {
+                        || break_(",", ", ").flex_break()
+                    } else {
+                        || break_(",", ", ")
+                    };
+                    let elements =
+                        Itertools::intersperse(elements.iter().map(|e| self.const_expr(e)), comma());
+                    list(concat(elements), None, false)
+                }
             }
 
             Constant::Tuple {
